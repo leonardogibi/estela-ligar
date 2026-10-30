@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Desafio Estela — Central de Ligação</title>
+<style>
+  :root { --bg: #03070a; --verde: #2bff88; --verde-2: #0e8c4a; --ciano: #20d9ff; --amarelo: #ffc83d; --vermelho: #ff4655; --texto: #c9ffe0; --apagado: #5e8f75; --painel: rgba(4, 20, 12, .86); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--texto); font-family: "JetBrains Mono", Consolas, "Courier New", monospace; }
+  canvas#chuva { position: fixed; inset: 0; z-index: 0; opacity: .55; }
+  main { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 28px 16px 40px; }
+  h1 { font-size: clamp(1.6rem, 5vw, 2.6rem); margin: 0; letter-spacing: .08em; color: var(--verde); text-shadow: 0 0 12px rgba(43,255,136,.55); }
+  .sub { color: var(--apagado); margin: 6px 0 22px; letter-spacing: .12em; font-size: .85rem; }
+  .painel { background: var(--painel); border: 1px solid rgba(43,255,136,.35); border-radius: 12px; padding: 18px; box-shadow: 0 0 30px rgba(43,255,136,.08) inset, 0 10px 40px rgba(0,0,0,.6); }
+  .status { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .luz { width: 18px; height: 18px; border-radius: 50%; background: var(--vermelho); box-shadow: 0 0 14px var(--vermelho); flex: none; }
+  .luz.ligando { background: var(--amarelo); box-shadow: 0 0 16px var(--amarelo); animation: pisca .7s steps(2) infinite; }
+  .luz.online { background: var(--verde); box-shadow: 0 0 18px var(--verde); }
+  @keyframes pisca { 50% { opacity: .25; } }
+  .estado { font-size: clamp(1.2rem, 4vw, 1.8rem); font-weight: 700; letter-spacing: .1em; }
+  .estado.online { color: var(--verde); } .estado.ligando { color: var(--amarelo); } .estado.off { color: var(--vermelho); }
+  .botoes { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+  button, a.btn { font: inherit; font-weight: 700; letter-spacing: .08em; cursor: pointer; border-radius: 10px; padding: 14px 20px; border: 1px solid var(--verde); background: rgba(43,255,136,.08); color: var(--verde); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+  button:hover, a.btn:hover { background: rgba(43,255,136,.18); box-shadow: 0 0 18px rgba(43,255,136,.35); }
+  button.grande { font-size: 1.15rem; padding: 18px 26px; background: var(--verde); color: #021a0c; box-shadow: 0 0 24px rgba(43,255,136,.55); }
+  button.grande:hover { background: #7cffb2; }
+  button.perigo { border-color: var(--vermelho); color: var(--vermelho); background: rgba(255,70,85,.08); }
+  button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+  .link { margin-top: 16px; padding: 12px 14px; border: 1px dashed rgba(32,217,255,.6); border-radius: 10px; color: var(--ciano); word-break: break-all; font-size: .95rem; }
+  .link b { color: var(--texto); }
+  .terminal { margin-top: 18px; background: #010402; border: 1px solid rgba(43,255,136,.25); border-radius: 10px; padding: 12px 14px; height: 230px; overflow-y: auto; font-size: .88rem; line-height: 1.55; }
+  .terminal .t { color: var(--apagado); } .terminal .ok { color: var(--verde); } .terminal .av { color: var(--amarelo); } .terminal .er { color: var(--vermelho); }
+  .cursor { display: inline-block; width: .6em; background: var(--verde); animation: pisca 1s steps(2) infinite; }
+  .modo { margin-top: 14px; display: flex; gap: 10px; align-items: flex-start; color: var(--texto); font-size: .9rem; }
+  .modo input { width: 20px; height: 20px; accent-color: var(--verde); margin-top: 2px; }
+  details { margin-top: 18px; color: var(--apagado); font-size: .88rem; }
+  details summary { cursor: pointer; color: var(--texto); }
+  .chave { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .chave input { flex: 1 1 260px; font: inherit; padding: 12px; border-radius: 8px; border: 1px solid rgba(43,255,136,.4); background: #010402; color: var(--texto); }
+  .aviso { margin-top: 14px; color: var(--amarelo); font-size: .9rem; }
+  .oculto { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { .luz.ligando, .cursor { animation: none; } canvas#chuva { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="chuva" aria-hidden="true"></canvas>
+<main>
+  <h1>DESAFIO ESTELA</h1>
+  <p class="sub">CENTRAL DE LIGAÇÃO · SERVIDOR DA AULA</p>
+
+  <section class="painel" aria-live="polite">
+    <div class="status"><span id="luz" class="luz"></span><span id="estado" class="estado off">VERIFICANDO…</span></div>
+    <div class="botoes">
+      <button id="ligar" class="grande">⚡ LIGAR O JOGO</button>
+      <a id="abrir" class="btn oculto" target="_blank" rel="noopener">▶ ABRIR O JOGO</a>
+      <button id="copiar" class="oculto">⧉ COPIAR LINK DA TURMA</button>
+      <button id="desligar" class="perigo oculto">⏻ DESLIGAR</button>
+    </div>
+    <div id="link" class="link oculto"></div>
+    <label class="modo"><input type="checkbox" id="modoAula"> <span><b>Modo aula:</b> enquanto esta página estiver aberta, se o servidor desligar sozinho, ela liga de novo (as equipes voltam de onde pararam).</span></label>
+    <div id="terminal" class="terminal" role="log"></div>
+    <p id="aviso" class="aviso oculto"></p>
+
+    <details id="cfg">
+      <summary>⚙ Chave de acesso (configurar uma vez neste computador)</summary>
+      <p>Cole a chave que o Leonardo criou no GitHub. Ela fica guardada só neste navegador e só serve para ligar e desligar o servidor da aula.</p>
+      <div class="chave"><input id="chaveInput" type="password" autocomplete="off" placeholder="github_pat_…" aria-label="Chave de acesso"><button id="salvarChave">SALVAR</button><button id="esquecerChave" class="perigo">ESQUECER</button></div>
+    </details>
+  </section>
+</main>
+<script>
+(function () {
+  'use strict';
+  // ---------------------------------------------------------------- configuração
+  const CODESPACE = 'gory-zombie-p77gx4969x5v3967g';                 // nome técnico do codespace "Aula Desafio Estela"
+  const LINK = 'https://' + CODESPACE + '-3000.app.github.dev';      // o link que a turma usa
+  const API = 'https://api.github.com/user/codespaces/' + CODESPACE;
+  const CHAVE_LS = 'estela-ligar-chave', MODO_LS = 'estela-ligar-modo';
+
+  const $ = id => document.getElementById(id);
+  const ls = { get: k => { try { return localStorage.getItem(k); } catch (_) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} }, del: k => { try { localStorage.removeItem(k); } catch (_) {} } };
+
+  // Chave pelo endereço (#chave=…): o Leonardo pode mandar um link pronto. Guarda e some da barra.
+  const m = location.hash.match(/chave=([A-Za-z0-9_]+)/);
+  if (m) { ls.set(CHAVE_LS, m[1]); history.replaceState(null, '', location.pathname + location.search); }
+  const chave = () => ls.get(CHAVE_LS);
+
+  // ---------------------------------------------------------------- terminal
+  const term = $('terminal');
+  function log(txt, cls) {
+    const h = new Date().toLocaleTimeString('pt-BR');
+    const l = document.createElement('div');
+    l.innerHTML = '<span class="t">[' + h + ']</span> <span class="' + (cls || '') + '"></span>';
+    l.lastChild.textContent = txt;
+    term.appendChild(l); term.scrollTop = term.scrollHeight;
+  }
+  log('> central de ligação iniciada', 'ok');
+
+  // ---------------------------------------------------------------- estado na tela
+  let ultimo = null, pronto = false, prontoEm = 0, ligandoDesde = 0;
+  function mostrar(fase) {
+    const luz = $('luz'), est = $('estado');
+    luz.className = 'luz' + (fase === 'online' ? ' online' : fase === 'ligando' ? ' ligando' : '');
+    est.className = 'estado ' + (fase === 'online' ? 'online' : fase === 'ligando' ? 'ligando' : 'off');
+    est.textContent = fase === 'online' ? 'JOGO ONLINE ✔' : fase === 'ligando' ? 'LIGANDO O SERVIDOR…' : fase === 'semchave' ? 'FALTA A CHAVE' : 'JOGO DESLIGADO';
+    $('ligar').classList.toggle('oculto', fase === 'online');
+    $('ligar').disabled = fase === 'ligando' || fase === 'semchave';
+    ['abrir', 'copiar', 'link'].forEach(id => $(id).classList.toggle('oculto', fase !== 'online'));
+    $('desligar').classList.toggle('oculto', fase !== 'online' && fase !== 'ligando');
+  }
+  $('abrir').href = LINK;
+  $('link').innerHTML = '<b>Link da turma:</b> ';
+  $('link').appendChild(document.createTextNode(LINK));
+
+  // ---------------------------------------------------------------- GitHub
+  async function gh(metodo, caminho) {
+    const k = chave();
+    if (!k) throw Object.assign(new Error('sem chave'), { semChave: true });
+    const r = await fetch(API + (caminho || ''), { method: metodo, headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + k, 'X-GitHub-Api-Version': '2022-11-28' }, cache: 'no-store' });
+    let corpo = null; try { corpo = await r.json(); } catch (_) {}
+    if (!r.ok) {
+      const precisa = r.headers.get('X-Accepted-GitHub-Permissions');
+      throw Object.assign(new Error((corpo && corpo.message) || ('HTTP ' + r.status)), { status: r.status, precisa });
+    }
+    return corpo;
+  }
+  function explicarErro(e) {
+    if (e.semChave) { mostrar('semchave'); $('cfg').open = true; aviso('Configure a chave de acesso (abaixo) para ligar o jogo.'); return; }
+    if (e.status === 401) { log('> chave recusada pelo GitHub (vencida ou apagada)', 'er'); aviso('A chave não vale mais. Peça uma nova ao Leonardo e cole abaixo.'); $('cfg').open = true; return; }
+    if (e.status === 403 || e.status === 404) { log('> sem permissão: ' + e.message + (e.precisa ? ' · precisa: ' + e.precisa : ''), 'er'); aviso('A chave não tem permissão para este servidor. Ela precisa de "Codespaces" e "Codespaces lifecycle admin" (leitura e escrita) no repositório desafio-estela.'); return; }
+    if (e.status === 402) { log('> GitHub: horas grátis do mês esgotadas', 'er'); aviso('As horas grátis do GitHub deste mês acabaram. Voltam no início do próximo ciclo.'); return; }
+    log('> erro: ' + e.message, 'er');
+  }
+  function aviso(t) { const a = $('aviso'); a.textContent = t; a.classList.toggle('oculto', !t); }
+
+  async function verificar() {
+    let cs;
+    try { cs = await gh('GET'); } catch (e) { explicarErro(e); return; }
+    aviso('');
+    const st = cs.state;
+    if (st !== ultimo) { log('> servidor: ' + st, st === 'Available' ? 'ok' : st === 'Shutdown' ? 'er' : 'av'); ultimo = st; }
+    if (st === 'Available') {
+      if (!pronto) {
+        if (!prontoEm) { prontoEm = Date.now(); log('> máquina no ar; subindo o jogo (uns 30 s)…', 'av'); }
+        if (Date.now() - prontoEm > 30000) { pronto = true; log('> JOGO ONLINE. Pode abrir e passar o link para a turma.', 'ok'); }
+      }
+      mostrar(pronto ? 'online' : 'ligando');
+    } else {
+      pronto = false; prontoEm = 0;
+      if (/Shutdown|Archived/.test(st)) {
+        mostrar('off');
+        if ($('modoAula').checked && Date.now() - ligandoDesde > 60000) { log('> modo aula: o servidor desligou; ligando de novo…', 'av'); ligar(); }
+      } else mostrar('ligando');
+    }
+  }
+  async function ligar() {
+    ligandoDesde = Date.now();
+    log('> autenticando no GitHub…', 'av');
+    mostrar('ligando');
+    try { await gh('POST', '/start'); log('> sinal de partida enviado. Aguardando o sistema (1 a 2 min)…', 'ok'); }
+    catch (e) { explicarErro(e); }
+    setTimeout(verificar, 2000);
+  }
+  async function desligar() {
+    if (!confirmarDesligar()) return;
+    $('modoAula').checked = false; ls.set(MODO_LS, '0');
+    log('> desligando o servidor (os dados ficam guardados)…', 'av');
+    try { await gh('POST', '/stop'); log('> servidor desligando. Horas grátis preservadas.', 'ok'); } catch (e) { explicarErro(e); }
+    setTimeout(verificar, 2000);
+  }
+  let pedindoConfirmacao = 0;
+  function confirmarDesligar() {   // dois cliques em 5 s, sem janela do navegador
+    if (Date.now() - pedindoConfirmacao < 5000) return true;
+    pedindoConfirmacao = Date.now();
+    log('> clique de novo em DESLIGAR em até 5 s para confirmar. (Com turma jogando, todos saem do ar.)', 'av');
+    return false;
+  }
+
+  $('ligar').onclick = ligar;
+  $('desligar').onclick = desligar;
+  $('copiar').onclick = async () => { try { await navigator.clipboard.writeText(LINK); log('> link copiado: ' + LINK, 'ok'); } catch (_) { log('> copie o link: ' + LINK, 'av'); } };
+  $('salvarChave').onclick = () => { const v = $('chaveInput').value.trim(); if (!v) return; ls.set(CHAVE_LS, v); $('chaveInput').value = ''; log('> chave salva neste navegador', 'ok'); $('cfg').open = false; ultimo = null; verificar(); };
+  $('esquecerChave').onclick = () => { ls.del(CHAVE_LS); log('> chave apagada deste navegador', 'av'); ultimo = null; verificar(); };
+  $('modoAula').checked = ls.get(MODO_LS) === '1';
+  $('modoAula').onchange = e => { ls.set(MODO_LS, e.target.checked ? '1' : '0'); log(e.target.checked ? '> modo aula ligado: esta página mantém o jogo no ar' : '> modo aula desligado', 'av'); };
+
+  verificar();
+  setInterval(verificar, 5000);
+
+  // ---------------------------------------------------------------- chuva binária (enfeite)
+  const cv = $('chuva'), ctx = cv.getContext('2d');
+  let W, H, cols = [];
+  function tam() { W = cv.width = innerWidth; H = cv.height = innerHeight; cols = Array.from({ length: Math.floor(W / 16) }, (_, i) => ({ x: i * 16 + 8, y: Math.random() * H, v: 40 + Math.random() * 90 })); }
+  tam(); addEventListener('resize', tam);
+  let t0 = performance.now();
+  function quadro(t) {
+    const dt = (t - t0) / 1000; t0 = t;
+    ctx.fillStyle = 'rgba(3,7,10,.18)'; ctx.fillRect(0, 0, W, H);
+    ctx.font = '14px Consolas, monospace'; ctx.textAlign = 'center';
+    for (const c of cols) {
+      c.y += c.v * dt; if (c.y > H + 20) { c.y = -20; c.v = 40 + Math.random() * 90; }
+      ctx.fillStyle = Math.random() < .08 ? '#c9ffe0' : '#2bff88';
+      ctx.fillText(Math.random() < .5 ? '0' : '1', c.x, c.y);
+    }
+    requestAnimationFrame(quadro);
+  }
+  requestAnimationFrame(quadro);
+})();
+</script>
+</body>
+</html>
