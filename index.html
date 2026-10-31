@@ -27,6 +27,8 @@
   button.grande { font-size: 1.15rem; padding: 18px 26px; background: var(--verde); color: #021a0c; box-shadow: 0 0 24px rgba(43,255,136,.55); }
   button.grande:hover { background: #7cffb2; }
   button.perigo { border-color: var(--vermelho); color: var(--vermelho); background: rgba(255,70,85,.08); }
+  button.perigo.confirmar { background: var(--vermelho); color: #fff; animation: piscaConf .6s steps(2) infinite; }
+  @keyframes piscaConf { 50% { opacity: .55; } }
   button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
   .link { margin-top: 16px; padding: 12px 14px; border: 1px dashed rgba(32,217,255,.6); border-radius: 10px; color: var(--ciano); word-break: break-all; font-size: .95rem; }
   .link b { color: var(--texto); }
@@ -101,6 +103,10 @@
 
   // ---------------------------------------------------------------- estado na tela
   let ultimo = null, pronto = false, prontoEm = 0, ligandoDesde = 0;
+  // Desligamento pedido à mão: vale para TODAS as abas abertas da central (fica no navegador).
+  const PARADO_LS = 'estela-ligar-parado';
+  const paradoHa = () => Date.now() - Number(ls.get(PARADO_LS) || 0);
+  const modoAula = () => ls.get(MODO_LS) === '1';
   function mostrar(fase) {
     const luz = $('luz'), est = $('estado');
     const transito = fase === 'ligando' || fase === 'desligando';
@@ -144,6 +150,7 @@
     const st = cs.state;
     const primeira = ultimo === null;
     if (st !== ultimo) { log('> servidor: ' + st, st === 'Available' ? 'ok' : st === 'Shutdown' ? 'er' : 'av'); ultimo = st; }
+    if (st === 'Available' && paradoHa() < 180000) { mostrar('desligando'); return; }   // o GitHub ainda não registrou o desligar
     if (st === 'Available') {
       // Já estava no ar quando a página abriu (ou foi recarregada): não precisa esperar o jogo subir.
       if (!pronto && primeira) { pronto = true; log('> JOGO ONLINE. Pode abrir e passar o link para a turma.', 'ok'); }
@@ -156,12 +163,12 @@
       pronto = false; prontoEm = 0;
       if (/Shutdown|Archived/.test(st)) {
         mostrar('off');
-        if ($('modoAula').checked && Date.now() - ligandoDesde > 60000) { log('> modo aula: o servidor desligou; ligando de novo…', 'av'); ligar(); }
+        if (modoAula() && paradoHa() > 180000 && Date.now() - ligandoDesde > 60000) { log('> modo aula: o servidor desligou; ligando de novo…', 'av'); ligar(); }
       } else mostrar(/ShuttingDown/.test(st) ? 'desligando' : 'ligando');
     }
   }
   async function ligar() {
-    ligandoDesde = Date.now();
+    ligandoDesde = Date.now(); ls.del(PARADO_LS);
     log('> autenticando no GitHub…', 'av');
     mostrar('ligando');
     try { await gh('POST', '/start'); log('> sinal de partida enviado. Aguardando o sistema (1 a 2 min)…', 'ok'); }
@@ -170,15 +177,20 @@
   }
   async function desligar() {
     if (!confirmarDesligar()) return;
-    $('modoAula').checked = false; ls.set(MODO_LS, '0');
-    log('> desligando o servidor (os dados ficam guardados)…', 'av');
+    $('modoAula').checked = false; ls.set(MODO_LS, '0'); ls.set(PARADO_LS, String(Date.now()));
+    mostrar('desligando');
+    log('> desligando o servidor (os dados ficam guardados). Leva até 2 min…', 'av');
     try { await gh('POST', '/stop'); log('> servidor desligando. Horas grátis preservadas.', 'ok'); } catch (e) { explicarErro(e); }
     setTimeout(verificar, 2000);
   }
-  let pedindoConfirmacao = 0;
-  function confirmarDesligar() {   // dois cliques em 5 s, sem janela do navegador
-    if (Date.now() - pedindoConfirmacao < 5000) return true;
+  let pedindoConfirmacao = 0, voltaTexto = 0;
+  function confirmarDesligar() {   // dois cliques em 5 s, sem janela do navegador; o próprio botão avisa
+    const b = $('desligar');
+    clearTimeout(voltaTexto); b.textContent = '⏻ DESLIGAR'; b.classList.remove('confirmar');
+    if (Date.now() - pedindoConfirmacao < 5000) { pedindoConfirmacao = 0; return true; }
     pedindoConfirmacao = Date.now();
+    b.textContent = '⚠ CLIQUE DE NOVO PARA CONFIRMAR'; b.classList.add('confirmar');
+    voltaTexto = setTimeout(() => { b.textContent = '⏻ DESLIGAR'; b.classList.remove('confirmar'); }, 5000);
     log('> clique de novo em DESLIGAR em até 5 s para confirmar. (Com turma jogando, todos saem do ar.)', 'av');
     return false;
   }
@@ -188,7 +200,9 @@
   $('copiar').onclick = async () => { try { await navigator.clipboard.writeText(LINK_CURTO); log('> link copiado: ' + LINK_CURTO, 'ok'); } catch (_) { log('> copie o link: ' + LINK_CURTO, 'av'); } };
   $('salvarChave').onclick = () => { const v = $('chaveInput').value.trim(); if (!v) return; ls.set(CHAVE_LS, v); $('chaveInput').value = ''; log('> chave salva neste navegador', 'ok'); $('cfg').open = false; ultimo = null; verificar(); };
   $('esquecerChave').onclick = () => { ls.del(CHAVE_LS); log('> chave apagada deste navegador', 'av'); ultimo = null; verificar(); };
-  $('modoAula').checked = ls.get(MODO_LS) === '1';
+  $('modoAula').checked = modoAula();
+  // outra aba da central mudou o modo aula ou desligou o jogo: esta acompanha na hora
+  addEventListener('storage', e => { if (e.key === MODO_LS) $('modoAula').checked = modoAula(); if (e.key === PARADO_LS && e.newValue) { $('modoAula').checked = false; log('> o jogo foi desligado em outra aba', 'av'); verificar(); } });
   $('modoAula').onchange = e => { ls.set(MODO_LS, e.target.checked ? '1' : '0'); log(e.target.checked ? '> modo aula ligado: esta página mantém o jogo no ar' : '> modo aula desligado', 'av'); };
 
   verificar();
