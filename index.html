@@ -27,6 +27,7 @@
   button.grande { font-size: 1.15rem; padding: 18px 26px; background: var(--verde); color: #021a0c; box-shadow: 0 0 24px rgba(43,255,136,.55); }
   button.grande:hover { background: #7cffb2; }
   button.perigo { border-color: var(--vermelho); color: var(--vermelho); background: rgba(255,70,85,.08); }
+  #desligar { min-width: 11.5em; }   /* o texto de confirmação cabe sem mudar o tamanho: o 2º clique cai no mesmo lugar */
   button.perigo.confirmar { background: var(--vermelho); color: #fff; animation: piscaConf .6s steps(2) infinite; }
   @keyframes piscaConf { 50% { opacity: .55; } }
   button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
@@ -189,7 +190,7 @@
     clearTimeout(voltaTexto); b.textContent = '⏻ DESLIGAR'; b.classList.remove('confirmar');
     if (Date.now() - pedindoConfirmacao < 5000) { pedindoConfirmacao = 0; return true; }
     pedindoConfirmacao = Date.now();
-    b.textContent = '⚠ CLIQUE DE NOVO PARA CONFIRMAR'; b.classList.add('confirmar');
+    b.textContent = '⚠ CONFIRMAR?'; b.classList.add('confirmar');
     voltaTexto = setTimeout(() => { b.textContent = '⏻ DESLIGAR'; b.classList.remove('confirmar'); }, 5000);
     log('> clique de novo em DESLIGAR em até 5 s para confirmar. (Com turma jogando, todos saem do ar.)', 'av');
     return false;
