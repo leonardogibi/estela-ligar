@@ -142,8 +142,11 @@
     try { cs = await gh('GET'); } catch (e) { explicarErro(e); return; }
     aviso('');
     const st = cs.state;
+    const primeira = ultimo === null;
     if (st !== ultimo) { log('> servidor: ' + st, st === 'Available' ? 'ok' : st === 'Shutdown' ? 'er' : 'av'); ultimo = st; }
     if (st === 'Available') {
+      // Já estava no ar quando a página abriu (ou foi recarregada): não precisa esperar o jogo subir.
+      if (!pronto && primeira) { pronto = true; log('> JOGO ONLINE. Pode abrir e passar o link para a turma.', 'ok'); }
       if (!pronto) {
         if (!prontoEm) { prontoEm = Date.now(); log('> máquina no ar; subindo o jogo (uns 30 s)…', 'av'); }
         if (Date.now() - prontoEm > 30000) { pronto = true; log('> JOGO ONLINE. Pode abrir e passar o link para a turma.', 'ok'); }
