@@ -75,7 +75,8 @@
   'use strict';
   // ---------------------------------------------------------------- configuração
   const CODESPACE = 'gory-zombie-p77gx4969x5v3967g';                 // nome técnico do codespace "Aula Desafio Estela"
-  const LINK = 'https://' + CODESPACE + '-3000.app.github.dev';      // o link que a turma usa
+  const LINK = 'https://' + CODESPACE + '-3000.app.github.dev';      // endereço real do jogo
+  const LINK_CURTO = 'https://leonardogibi.github.io/aula';          // o que vai no quadro: redireciona para o LINK
   const API = 'https://api.github.com/user/codespaces/' + CODESPACE;
   const CHAVE_LS = 'estela-ligar-chave', MODO_LS = 'estela-ligar-modo';
 
@@ -102,17 +103,18 @@
   let ultimo = null, pronto = false, prontoEm = 0, ligandoDesde = 0;
   function mostrar(fase) {
     const luz = $('luz'), est = $('estado');
-    luz.className = 'luz' + (fase === 'online' ? ' online' : fase === 'ligando' ? ' ligando' : '');
-    est.className = 'estado ' + (fase === 'online' ? 'online' : fase === 'ligando' ? 'ligando' : 'off');
-    est.textContent = fase === 'online' ? 'JOGO ONLINE ✔' : fase === 'ligando' ? 'LIGANDO O SERVIDOR…' : fase === 'semchave' ? 'FALTA A CHAVE' : 'JOGO DESLIGADO';
+    const transito = fase === 'ligando' || fase === 'desligando';
+    luz.className = 'luz' + (fase === 'online' ? ' online' : transito ? ' ligando' : '');
+    est.className = 'estado ' + (fase === 'online' ? 'online' : transito ? 'ligando' : 'off');
+    est.textContent = fase === 'online' ? 'JOGO ONLINE ✔' : fase === 'ligando' ? 'LIGANDO O SERVIDOR…' : fase === 'desligando' ? 'DESLIGANDO…' : fase === 'semchave' ? 'FALTA A CHAVE' : 'JOGO DESLIGADO';
     $('ligar').classList.toggle('oculto', fase === 'online');
-    $('ligar').disabled = fase === 'ligando' || fase === 'semchave';
+    $('ligar').disabled = transito || fase === 'semchave';
     ['abrir', 'copiar', 'link'].forEach(id => $(id).classList.toggle('oculto', fase !== 'online'));
     $('desligar').classList.toggle('oculto', fase !== 'online' && fase !== 'ligando');
   }
   $('abrir').href = LINK;
-  $('link').innerHTML = '<b>Link da turma:</b> ';
-  $('link').appendChild(document.createTextNode(LINK));
+  $('link').innerHTML = '<b>Link da turma (para o quadro):</b> ';
+  $('link').appendChild(document.createTextNode(LINK_CURTO.replace('https://', '')));
 
   // ---------------------------------------------------------------- GitHub
   async function gh(metodo, caminho) {
@@ -152,7 +154,7 @@
       if (/Shutdown|Archived/.test(st)) {
         mostrar('off');
         if ($('modoAula').checked && Date.now() - ligandoDesde > 60000) { log('> modo aula: o servidor desligou; ligando de novo…', 'av'); ligar(); }
-      } else mostrar('ligando');
+      } else mostrar(/ShuttingDown/.test(st) ? 'desligando' : 'ligando');
     }
   }
   async function ligar() {
@@ -180,7 +182,7 @@
 
   $('ligar').onclick = ligar;
   $('desligar').onclick = desligar;
-  $('copiar').onclick = async () => { try { await navigator.clipboard.writeText(LINK); log('> link copiado: ' + LINK, 'ok'); } catch (_) { log('> copie o link: ' + LINK, 'av'); } };
+  $('copiar').onclick = async () => { try { await navigator.clipboard.writeText(LINK_CURTO); log('> link copiado: ' + LINK_CURTO, 'ok'); } catch (_) { log('> copie o link: ' + LINK_CURTO, 'av'); } };
   $('salvarChave').onclick = () => { const v = $('chaveInput').value.trim(); if (!v) return; ls.set(CHAVE_LS, v); $('chaveInput').value = ''; log('> chave salva neste navegador', 'ok'); $('cfg').open = false; ultimo = null; verificar(); };
   $('esquecerChave').onclick = () => { ls.del(CHAVE_LS); log('> chave apagada deste navegador', 'av'); ultimo = null; verificar(); };
   $('modoAula').checked = ls.get(MODO_LS) === '1';
